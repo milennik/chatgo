@@ -1,28 +1,32 @@
 package main
 
 import (
-	"fmt"
+	"net/http"
 
-	static "github.com/gin-contrib/static"
-	"github.com/gin-gonic/gin"
 	"gopkg.in/olahol/melody.v1"
 )
 
 func main() {
-	fmt.Println("kafica")
-
-	r := gin.Default()
 	m := melody.New()
 
-	r.Use(static.Serve("/", static.LocalFile("./public", true)))
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			http.ServeFile(w, r, "./public/index.html")
+			return
+		}
 
-	r.GET("/ws", func(c *gin.Context) {
-		m.HandleRequest(c.Writer, c.Request)
+		http.ServeFile(w, r, "./public/chan.html")
+	})
+
+	http.HandleFunc("/ws/", func(w http.ResponseWriter, r *http.Request) {
+		m.HandleRequest(w, r)
 	})
 
 	m.HandleMessage(func(s *melody.Session, msg []byte) {
-		m.Broadcast(msg)
+		m.BroadcastFilter(msg, func(q *melody.Session) bool {
+			return q.Request.URL.Path == s.Request.URL.Path
+		})
 	})
 
-	r.Run(":5000")
+	http.ListenAndServe(":5000", nil)
 }
